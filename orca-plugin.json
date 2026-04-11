@@ -1,0 +1,138 @@
+{
+  "manifestVersion": 2,
+  "id": "openproject",
+  "name": "OpenProject",
+  "version": "0.1.0",
+  "description": "OpenProject CE sidebar panel, guarded ticket manager, and Rust MCP server integration for Orca.",
+  "author": {
+    "name": "Ivan Ha"
+  },
+  "license": "MIT",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "openproject",
+        "title": "OpenProject",
+        "icon": "blocks",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ],
+    "commands": [
+      {
+        "id": "openproject.refresh",
+        "title": "OpenProject: Refresh Projects & Tickets",
+        "when": "global"
+      },
+      {
+        "id": "openproject.clearCache",
+        "title": "OpenProject: Clear Local Ticket Cache",
+        "when": "global"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "openproject-status",
+        "text": "OpenProject",
+        "icon": "blocks",
+        "tone": "neutral",
+        "tooltip": "OpenProject CE connection status (click to refresh)",
+        "command": "openproject.refresh"
+      }
+    ],
+    "hooks": [
+      {
+        "event": "agent.launch.before",
+        "onError": "pass"
+      }
+    ],
+    "settings": [
+      {
+        "key": "baseUrl",
+        "title": "OpenProject Base URL",
+        "description": "Base URL of your OpenProject Community Edition instance (e.g. https://openproject.example.com).",
+        "type": "string",
+        "default": "",
+        "placeholder": "https://openproject.example.com"
+      },
+      {
+        "key": "readProjects",
+        "title": "Read Projects Allowlist",
+        "description": "Comma-separated project identifiers or '*' allowed for reading (maps to OPENPROJECT_READ_PROJECTS).",
+        "type": "string",
+        "default": "*",
+        "placeholder": "esg-backend,esg-frontend or *"
+      },
+      {
+        "key": "writeProjects",
+        "title": "Write Projects Allowlist",
+        "description": "Comma-separated project identifiers or '*' allowed for guarded writes (maps to OPENPROJECT_WRITE_PROJECTS).",
+        "type": "string",
+        "default": "*",
+        "placeholder": "esg-backend,esg-frontend or *"
+      },
+      {
+        "key": "defaultAgent",
+        "title": "Default Agent for Tickets",
+        "description": "Agent CLI to start when launching work on an OpenProject work package.",
+        "type": "string",
+        "default": "codex",
+        "enum": [
+          "codex",
+          "claude",
+          "omp",
+          "pi",
+          "grok"
+        ],
+        "enumLabels": [
+          "Codex",
+          "Claude Code",
+          "OMP",
+          "Pi",
+          "Grok"
+        ]
+      },
+      {
+        "key": "mcpBinaryPath",
+        "title": "Rust MCP Binary Path",
+        "description": "Executable name or path for the Rust mcp-openproject stdio server.",
+        "type": "string",
+        "default": "mcp-openproject",
+        "placeholder": "mcp-openproject"
+      },
+      {
+        "key": "injectEnvOnAgentLaunch",
+        "title": "Inject OpenProject Env on Agent Launch",
+        "description": "Automatically pass OPENPROJECT_BASE_URL, OPENPROJECT_API_TOKEN, and project allowlists to agents started in Orca.",
+        "type": "boolean",
+        "default": true
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "storage:own"
+    },
+    {
+      "kind": "settings:own"
+    },
+    {
+      "kind": "secrets:own"
+    },
+    {
+      "kind": "workspace:read"
+    },
+    {
+      "kind": "agent:launch"
+    },
+    {
+      "kind": "notifications:show"
+    }
+  ]
+}
