@@ -1,11 +1,16 @@
 {
   "manifestVersion": 2,
   "id": "openproject",
-  "name": "OpenProject",
+  "name": "OpenProject MCP for Orca",
   "version": "0.1.0",
-  "description": "OpenProject CE sidebar panel, guarded ticket manager, and Rust MCP server integration for Orca.",
+  "description": "Community-built Orca sidebar and Rust MCP integration for OpenProject CE, with guarded ticket writes.",
+  "cover": {
+    "path": "assets/cover.png",
+    "alt": "Illustration of the OpenProject MCP for Orca ticket panel using synthetic demo tasks"
+  },
   "author": {
-    "name": "Ivan Ha"
+    "name": "IvanHa-dev",
+    "url": "https://github.com/IvanHa-dev"
   },
   "license": "MIT",
   "engines": {
@@ -67,7 +72,7 @@
         "description": "Comma-separated project identifiers or '*' allowed for reading (maps to OPENPROJECT_READ_PROJECTS).",
         "type": "string",
         "default": "*",
-        "placeholder": "esg-backend,esg-frontend or *"
+        "placeholder": "* or my-project-slug"
       },
       {
         "key": "writeProjects",
@@ -75,7 +80,7 @@
         "description": "Comma-separated project identifiers or '*' allowed for guarded writes (maps to OPENPROJECT_WRITE_PROJECTS).",
         "type": "string",
         "default": "*",
-        "placeholder": "esg-backend,esg-frontend or *"
+        "placeholder": "* or my-project-slug"
       },
       {
         "key": "defaultAgent",
@@ -84,15 +89,29 @@
         "type": "string",
         "default": "codex",
         "enum": [
+          "antigravity",
+          "agy",
           "codex",
           "claude",
+          "gemini",
+          "opencode",
+          "kilocode",
+          "cursor-agent",
+          "droid",
           "omp",
           "pi",
           "grok"
         ],
         "enumLabels": [
+          "Antigravity (agy)",
+          "Antigravity CLI (agy)",
           "Codex",
           "Claude Code",
+          "Gemini CLI",
+          "OpenCode",
+          "KiloCode",
+          "Cursor Agent",
+          "Droid",
           "OMP",
           "Pi",
           "Grok"

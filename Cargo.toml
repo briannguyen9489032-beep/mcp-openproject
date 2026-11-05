@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Fast, context-frugal OpenProject Community Edition MCP server in Rust with preview-then-confirm guarded writes for Orca agents."
 license = "MIT"
-authors = ["Ivan Ha <info.ivanha@gmail.com>"]
+authors = ["IvanHa-dev"]
 
 [[bin]]
 name = "mcp-openproject"

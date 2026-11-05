@@ -1,7 +1,10 @@
 import type {
   OpenProjectActivity,
+  OpenProjectPrincipalItem,
+  OpenProjectPriorityItem,
   OpenProjectProject,
   OpenProjectStatusItem,
+  OpenProjectTypeItem,
   OpenProjectWorkPackage
 } from './protocol'
 
@@ -93,6 +96,9 @@ export function sanitizePathSegment(raw: string, label = 'identifier'): string {
 
 export function formatWorktreeBranchSlug(ticketId: number, subject: string): string {
   const slug = subject
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -148,17 +154,27 @@ function capText(raw: unknown, maxLen = 1200): string {
 }
 
 export function mapHalProject(raw: Record<string, any>): OpenProjectProject {
+  const hasLinks = Boolean(raw._links && typeof raw._links === 'object')
+  const canCreateWorkPackage = hasLinks
+    ? Boolean(raw._links.createWorkPackage || raw._links.createWorkPackageImmediate)
+    : typeof raw.canCreateWorkPackage === 'boolean'
+      ? raw.canCreateWorkPackage
+      : true
   return {
     id: Number(raw.id ?? 0),
     identifier: String(raw.identifier ?? raw.id ?? ''),
     name: String(raw.name ?? raw.identifier ?? ''),
-    description: capText(raw.description?.raw ?? '', 500)
+    description: capText(raw.description?.raw ?? '', 500),
+    canCreateWorkPackage
   }
 }
 
 export function mapHalWorkPackage(
   raw: Record<string, any>,
-  projectIdToIdentifier?: Map<number, string>
+  projectIdToIdentifier?: Map<number, string>,
+  statusColorById?: Map<number, string>,
+  priorityColorById?: Map<number, string>,
+  typeColorById?: Map<number, string>
 ): OpenProjectWorkPackage {
   const links = raw._links ?? {}
   const projectHref: string | undefined = links.project?.href
@@ -175,27 +191,118 @@ export function mapHalWorkPackage(
     : (raw.projectIdentifier ??
       (resolvedSlug || projectTitle.toLowerCase().replace(/[^a-z0-9-]+/g, '-')))
 
-  return {
+  const statusId = extractHalIdFromHref(links.status?.href)
+  const typeId = extractHalIdFromHref(links.type?.href)
+  const priorityId = extractHalIdFromHref(links.priority?.href)
+  const assigneeId = extractHalIdFromHref(links.assignee?.href)
+  const responsibleId = extractHalIdFromHref(links.responsible?.href)
+  const parentId = extractHalIdFromHref(links.parent?.href) || Number(raw.parentId ?? 0)
+  const parentSubject =
+    typeof links.parent?.title === 'string' && links.parent.title.trim()
+      ? links.parent.title.trim()
+      : typeof raw.parentSubject === 'string' && raw.parentSubject.trim()
+        ? raw.parentSubject.trim()
+        : undefined
+  const ancestorIds = Array.isArray(links.ancestors)
+    ? links.ancestors
+        .map((a: any) => extractHalIdFromHref(a?.href))
+        .filter((id: number) => id > 0)
+    : Array.isArray(raw.ancestorIds)
+      ? raw.ancestorIds.map(Number).filter((id: number) => id > 0)
+      : []
+  const childIds = Array.isArray(links.children)
+    ? links.children
+        .map((c: any) => extractHalIdFromHref(c?.href))
+        .filter((id: number) => id > 0)
+    : Array.isArray(raw.childIds)
+      ? raw.childIds.map(Number).filter((id: number) => id > 0)
+      : []
+
+  const statusColor =
+    typeof raw.statusColor === 'string' && raw.statusColor.trim()
+      ? raw.statusColor.trim()
+      : statusColorById?.get(statusId)
+  const typeColor =
+    typeof raw.typeColor === 'string' && raw.typeColor.trim()
+      ? raw.typeColor.trim()
+      : typeColorById?.get(typeId)
+  const priorityColor =
+    typeof raw.priorityColor === 'string' && raw.priorityColor.trim()
+      ? raw.priorityColor.trim()
+      : priorityColorById?.get(priorityId)
+
+  const item: OpenProjectWorkPackage = {
     id: Number(raw.id ?? 0),
     subject: capText(raw.subject ?? '', 200),
-    description: capText(raw.description?.raw ?? '', 280),
-    status: String(links.status?.title ?? raw.status ?? 'Unknown'),
-    statusId: extractHalIdFromHref(links.status?.href),
-    type: String(links.type?.title ?? raw.type ?? 'Task'),
-    priority: String(links.priority?.title ?? raw.priority ?? 'Normal'),
+    description: capText(raw.description?.raw ?? '', 8000),
+    status: String(links.status?.title ?? raw._embedded?.status?.name ?? raw.status ?? 'Unknown'),
+    statusId: statusId > 0 ? statusId : 0,
+    type: String(links.type?.title ?? raw._embedded?.type?.name ?? raw.type ?? 'Task'),
+    priority: String(links.priority?.title ?? raw._embedded?.priority?.name ?? raw.priority ?? 'Normal'),
     project: String(projectTitle || projectIdentifier || 'Unknown'),
     projectIdentifier: String(projectIdentifier || projectTitle || ''),
     assignee: String(links.assignee?.title ?? 'Unassigned'),
+    responsible: String(links.responsible?.title ?? 'Unassigned'),
     updatedAt: String(raw.updatedAt ?? new Date().toISOString()),
     lockVersion: Number(raw.lockVersion ?? 0)
   }
+
+  if (statusColor) item.statusColor = statusColor
+  if (typeId > 0) item.typeId = typeId
+  if (typeColor) item.typeColor = typeColor
+  if (priorityId > 0) item.priorityId = priorityId
+  if (priorityColor) item.priorityColor = priorityColor
+  if (assigneeId > 0) item.assigneeId = assigneeId
+  if (responsibleId > 0) item.responsibleId = responsibleId
+  if (parentId > 0) item.parentId = parentId
+  if (parentSubject) item.parentSubject = parentSubject
+  if (ancestorIds.length > 0) item.ancestorIds = ancestorIds
+  if (childIds.length > 0) item.childIds = childIds
+
+  return item
 }
 
 export function mapHalStatus(raw: Record<string, any>): OpenProjectStatusItem {
-  return {
+  const item: OpenProjectStatusItem = {
     id: Number(raw.id ?? 0),
     name: String(raw.name ?? ''),
     isClosed: Boolean(raw.isClosed)
+  }
+  if (typeof raw.color === 'string' && raw.color.trim()) {
+    item.color = raw.color.trim()
+  }
+  return item
+}
+
+export function mapHalType(raw: Record<string, any>): OpenProjectTypeItem {
+  const item: OpenProjectTypeItem = {
+    id: Number(raw.id ?? 0),
+    name: String(raw.name ?? ''),
+    isDefault: Boolean(raw.isDefault),
+    isMilestone: Boolean(raw.isMilestone)
+  }
+  if (typeof raw.color === 'string' && raw.color.trim()) {
+    item.color = raw.color.trim()
+  }
+  return item
+}
+
+export function mapHalPriority(raw: Record<string, any>): OpenProjectPriorityItem {
+  const item: OpenProjectPriorityItem = {
+    id: Number(raw.id ?? 0),
+    name: String(raw.name ?? ''),
+    isDefault: Boolean(raw.isDefault)
+  }
+  if (typeof raw.color === 'string' && raw.color.trim()) {
+    item.color = raw.color.trim()
+  }
+  return item
+}
+
+export function mapHalPrincipal(raw: Record<string, any>): OpenProjectPrincipalItem {
+  return {
+    id: Number(raw.id ?? 0),
+    name: String(raw.name ?? '').trim()
   }
 }
 

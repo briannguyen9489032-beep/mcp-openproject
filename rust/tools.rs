@@ -81,7 +81,7 @@ pub fn list_tool_definitions(client: &OpenProjectClient) -> Vec<Value> {
                 "properties": {
                     "project": {
                         "type": ["string", "integer"],
-                        "description": "Project identifier (e.g. \"esg-vrg\"), name (\"ESG VRG\"), or numeric ID."
+                        "description": "Project identifier (e.g. \"my-project\"), name (\"My Project\"), or numeric ID."
                     },
                     "select": {
                         "type": "array",
@@ -120,7 +120,7 @@ pub fn list_tool_definitions(client: &OpenProjectClient) -> Vec<Value> {
                 "properties": {
                     "project": {
                         "type": ["string", "integer"],
-                        "description": "Optional project identifier (\"esg-vrg\"), name (\"ESG VRG\"), or numeric ID."
+                        "description": "Optional project identifier (\"my-project\"), name (\"My Project\"), or numeric ID."
                     },
                     "open_only": {
                         "type": "boolean",
@@ -300,7 +300,7 @@ pub fn list_tool_definitions(client: &OpenProjectClient) -> Vec<Value> {
                 "properties": {
                     "project": {
                         "type": ["string", "integer"],
-                        "description": "Target project identifier (\"esg-vrg\"), name (\"ESG VRG\"), or numeric ID."
+                        "description": "Target project identifier (\"my-project\"), name (\"My Project\"), or numeric ID."
                     },
                     "subject": {
                         "type": "string",
@@ -538,8 +538,8 @@ fn value_to_string(v: &Value) -> String {
     }
 }
 
-/// Resolves a caller-supplied project reference (numeric ID, slug identifier like "esg-vrg",
-/// or display name like "ESG VRG") to a safe URL path segment (identifier or numeric ID).
+/// Resolves a caller-supplied project reference (numeric ID, slug identifier like "my-project",
+/// or display name like "My Project") to a safe URL path segment (identifier or numeric ID).
 fn resolve_project_segment(
     client: &OpenProjectClient,
     raw_ref: &str,
@@ -550,7 +550,7 @@ fn resolve_project_segment(
         bail!("[validation_error] Parameter 'project' must not be empty");
     }
 
-    // If it contains spaces or non-slug characters (e.g. "ESG VRG" or "Nhà Trọ 365"),
+    // If it contains spaces or non-slug characters (e.g. "My Project" or "Dự án Mẫu"),
     // look up the canonical identifier from /api/v3/projects.
     let resolved_ident = if validate_path_segment(trimmed, "project").is_ok() {
         trimmed.to_string()

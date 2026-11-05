@@ -4,8 +4,8 @@ import * as main from './worker'
 const sampleProjects = [
   {
     id: 1,
-    identifier: 'esg-backend',
-    name: 'ESG Backend',
+    identifier: 'acme-backend',
+    name: 'Acme Backend',
     description: 'Backend API'
   },
   {
@@ -25,9 +25,9 @@ const sampleWorkPackages = [
     statusId: 1,
     type: 'Bug',
     priority: 'High',
-    project: 'ESG Backend',
-    projectIdentifier: 'esg-backend',
-    assignee: 'Ivan Ha',
+    project: 'Acme Backend',
+    projectIdentifier: 'acme-backend',
+    assignee: 'Alex Dev',
     updatedAt: '2026-11-04T08:00:00Z',
     lockVersion: 1
   },
@@ -51,8 +51,8 @@ test('enforces read/write allowlists, 2-step preview-then-confirm, and agent lau
   const host = mockHost({
     settings: {
       baseUrl: 'https://openproject.example.com',
-      readProjects: 'esg-backend',
-      writeProjects: 'esg-backend',
+      readProjects: 'acme-backend',
+      writeProjects: 'acme-backend',
       defaultAgent: 'codex',
       injectEnvOnAgentLaunch: true
     },
@@ -67,10 +67,10 @@ test('enforces read/write allowlists, 2-step preview-then-confirm, and agent lau
       'workspace.list': {
         workspaces: [
           {
-            id: 'ws-esg-backend',
+            id: 'ws-acme-backend',
             kind: 'worktree',
-            name: 'esg-backend',
-            path: '/home/ivan/orca/esg-backend',
+            name: 'acme-backend',
+            path: '/home/dev/orca/acme-backend',
             branch: 'main',
             hostId: null
           }
@@ -85,12 +85,14 @@ test('enforces read/write allowlists, 2-step preview-then-confirm, and agent lau
 
   const worker = await mountWorker(main, { host })
 
-  // 1. Verify readProjects filters out secret-proj
+  // 1. Verify readProjects filters out secret-proj and detectedAgents includes Antigravity (agy)
   const state = await worker.request('openproject.state.get')
   assert.equal(state.projects.length, 1)
-  assert.equal(state.projects[0].identifier, 'esg-backend')
+  assert.equal(state.projects[0].identifier, 'acme-backend')
   assert.equal(state.workPackages.length, 1)
   assert.equal(state.workPackages[0].id, 1428)
+  assert.ok(Array.isArray(state.detectedAgents))
+  assert.ok(state.detectedAgents?.some((a) => a.id === 'antigravity'))
 
   // 2. Preview update without confirm=true does not mutate storage
   const preview = await worker.request('openproject.workPackages.update', {
@@ -128,7 +130,7 @@ test('enforces read/write allowlists, 2-step preview-then-confirm, and agent lau
   // 5. Verify agent.launch.before hook injects OpenProject MCP env vars
   const hookDecision = await worker.hooks.fire('agent.launch.before', {
     agent: 'codex',
-    workspaceId: 'ws-esg-backend',
+    workspaceId: 'ws-acme-backend',
     workspaceKind: 'worktree',
     command: 'codex',
     env: { EXISTING: '1' }
@@ -137,8 +139,8 @@ test('enforces read/write allowlists, 2-step preview-then-confirm, and agent lau
   if (hookDecision.kind === 'continue') {
     assert.equal(hookDecision.event.env.OPENPROJECT_BASE_URL, 'https://openproject.example.com')
     assert.equal(hookDecision.event.env.OPENPROJECT_API_TOKEN, 'opapi-secret-123')
-    assert.equal(hookDecision.event.env.OPENPROJECT_READ_PROJECTS, 'esg-backend')
-    assert.equal(hookDecision.event.env.OPENPROJECT_WRITE_PROJECTS, 'esg-backend')
+    assert.equal(hookDecision.event.env.OPENPROJECT_READ_PROJECTS, 'acme-backend')
+    assert.equal(hookDecision.event.env.OPENPROJECT_WRITE_PROJECTS, 'acme-backend')
   }
 
   assert.deepEqual(worker.refusals, [])

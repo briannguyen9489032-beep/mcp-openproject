@@ -1,7 +1,28 @@
 export interface OpenProjectStatusItem {
   id: number
   name: string
+  color?: string
   isClosed: boolean
+}
+
+export interface OpenProjectPriorityItem {
+  id: number
+  name: string
+  color?: string
+  isDefault?: boolean
+}
+
+export interface OpenProjectTypeItem {
+  id: number
+  name: string
+  color?: string
+  isDefault?: boolean
+  isMilestone?: boolean
+}
+
+export interface OpenProjectPrincipalItem {
+  id: number
+  name: string
 }
 
 export interface OpenProjectProject {
@@ -9,6 +30,7 @@ export interface OpenProjectProject {
   identifier: string
   name: string
   description: string
+  canCreateWorkPackage?: boolean
 }
 
 export interface OpenProjectWorkPackage {
@@ -17,11 +39,23 @@ export interface OpenProjectWorkPackage {
   description: string
   status: string
   statusId: number
+  statusColor?: string
   type: string
+  typeId?: number
+  typeColor?: string
   priority: string
+  priorityId?: number
+  priorityColor?: string
   project: string
   projectIdentifier: string
   assignee: string
+  assigneeId?: number
+  responsible?: string
+  responsibleId?: number
+  parentId?: number
+  parentSubject?: string
+  ancestorIds?: number[]
+  childIds?: number[]
   updatedAt: string
   lockVersion: number
 }
@@ -33,6 +67,15 @@ export interface OpenProjectActivity {
   createdAt: string
 }
 
+export interface DetectedAgentCli {
+  id: string
+  label: string
+  installed: boolean
+  binPath?: string
+  mcpConfigPath?: string
+  mcpSnippet?: string
+}
+
 export interface OpenProjectConfigSummary {
   baseUrl: string
   hasToken: boolean
@@ -42,6 +85,8 @@ export interface OpenProjectConfigSummary {
   defaultAgent: string
   mcpBinaryPath: string
   injectEnvOnAgentLaunch: boolean
+  pageSize?: number
+  focusProject?: string
 }
 
 export interface OpenProjectStateSnapshot {
@@ -50,8 +95,12 @@ export interface OpenProjectStateSnapshot {
   projects: OpenProjectProject[]
   workPackages: OpenProjectWorkPackage[]
   statuses: OpenProjectStatusItem[]
+  types?: OpenProjectTypeItem[]
+  priorities?: OpenProjectPriorityItem[]
+  principals?: OpenProjectPrincipalItem[]
   selectedTicket: OpenProjectWorkPackage | null
   activities: OpenProjectActivity[]
+  detectedAgents?: DetectedAgentCli[]
   lastSyncedAt: number | null
   lastError: string | null
 }
@@ -81,6 +130,7 @@ export interface LaunchAgentOutput {
 declare module 'orca' {
   interface PluginRequests {
     'openproject.state.get': {
+      input?: { project?: string; pageSize?: number }
       output: OpenProjectStateSnapshot
     }
     'openproject.config.save': {
@@ -92,6 +142,7 @@ declare module 'orca' {
         defaultAgent?: string
         mcpBinaryPath?: string
         injectEnvOnAgentLaunch?: boolean
+        pageSize?: number
       }
       output: OpenProjectStateSnapshot
     }
@@ -99,7 +150,7 @@ declare module 'orca' {
       output: OpenProjectStateSnapshot
     }
     'openproject.projects.list': {
-      input?: { refresh?: boolean }
+      input?: { refresh?: boolean; pageSize?: number; project?: string }
       output: { projects: OpenProjectProject[]; statuses: OpenProjectStatusItem[] }
     }
     'openproject.workPackages.list': {
@@ -120,6 +171,8 @@ declare module 'orca' {
         id: number
         subject?: string
         status?: string
+        assigneeId?: number | null
+        responsibleId?: number | null
         description?: string
         comment?: string
         confirm?: boolean
@@ -132,6 +185,10 @@ declare module 'orca' {
         subject: string
         description?: string
         typeName?: string
+        priorityName?: string
+        parentId?: number | null
+        assigneeId?: number | null
+        responsibleId?: number | null
         confirm?: boolean
       }
       output: GuardedWriteResult<OpenProjectWorkPackage>
@@ -139,6 +196,16 @@ declare module 'orca' {
     'openproject.agent.launch': {
       input: LaunchAgentInput
       output: LaunchAgentOutput
+    }
+    'openproject.mcp.register': {
+      input: {
+        agent?: string
+      }
+      output: {
+        agent: string
+        configPath: string
+        summary: string
+      }
     }
   }
 

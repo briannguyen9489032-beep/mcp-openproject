@@ -331,26 +331,47 @@ fn parse_bool_env(key: &str, default: bool) -> bool {
     }
 }
 
+fn is_placeholder_env_value(val: &str) -> bool {
+    let lower = val.trim().to_ascii_lowercase();
+    lower.is_empty()
+        || lower == "https://openproject.example.com"
+        || lower == "http://openproject.example.com"
+        || lower == "opapi-..."
+        || lower == "opapi-your-token"
+        || lower.starts_with("<your_")
+}
+
 fn discover_local_mcp_env() -> HashMap<String, String> {
     let mut map = HashMap::new();
-    let Ok(home) = env::var("HOME") else {
+    let Ok(home) = env::var("HOME").or_else(|_| env::var("USERPROFILE")) else {
         return map;
     };
     let home_path = PathBuf::from(home);
 
-    let claude_path = home_path.join(".claude.json");
-    if let Ok(content) = fs::read_to_string(&claude_path) {
-        if let Ok(parsed) = serde_json::from_str::<Value>(&content) {
-            if let Some(env_obj) = parsed
-                .get("mcpServers")
-                .and_then(|s| s.get("openproject").or_else(|| s.get("openproject-ce")))
-                .and_then(|o| o.get("env"))
-                .and_then(|e| e.as_object())
-            {
-                for (k, v) in env_obj {
-                    if let Some(val_str) = v.as_str() {
-                        if !val_str.trim().is_empty() {
-                            map.insert(k.clone(), val_str.trim().to_string());
+    let json_config_paths = [
+        home_path.join(".claude.json"),
+        home_path.join(".gemini").join("config").join("mcp_config.json"),
+        home_path
+            .join(".gemini")
+            .join("antigravity")
+            .join("mcp_config.json"),
+    ];
+
+    for config_path in &json_config_paths {
+        if let Ok(content) = fs::read_to_string(config_path) {
+            if let Ok(parsed) = serde_json::from_str::<Value>(&content) {
+                if let Some(env_obj) = parsed
+                    .get("mcpServers")
+                    .and_then(|s| s.get("openproject").or_else(|| s.get("openproject-ce")))
+                    .and_then(|o| o.get("env"))
+                    .and_then(|e| e.as_object())
+                {
+                    for (k, v) in env_obj {
+                        if let Some(val_str) = v.as_str() {
+                            let trimmed = val_str.trim();
+                            if !is_placeholder_env_value(trimmed) && !map.contains_key(k) {
+                                map.insert(k.clone(), trimmed.to_string());
+                            }
                         }
                     }
                 }
@@ -366,7 +387,7 @@ fn discover_local_mcp_env() -> HashMap<String, String> {
                 if let Some((k, v)) = trimmed.split_once('=') {
                     let key = k.trim();
                     let val = v.trim().trim_matches('"').trim_matches('\'').trim();
-                    if !val.is_empty() && !map.contains_key(key) {
+                    if !is_placeholder_env_value(val) && !map.contains_key(key) {
                         map.insert(key.to_string(), val.to_string());
                     }
                 }
@@ -383,9 +404,9 @@ mod tests {
 
     #[test]
     fn test_allowlist_and_glob_matching() {
-        let list = parse_allowlist("esg-*, core-?1, 42");
-        assert!(matches_allowlist("esg-backend", &list));
-        assert!(matches_allowlist("ESG-FRONTEND", &list));
+        let list = parse_allowlist("acme-*, core-?1, 42");
+        assert!(matches_allowlist("acme-backend", &list));
+        assert!(matches_allowlist("ACME-FRONTEND", &list));
         assert!(matches_allowlist("core-v1", &list));
         assert!(matches_allowlist("42", &list));
         assert!(!matches_allowlist("other-proj", &list));
@@ -396,7 +417,7 @@ mod tests {
         assert!(!matches_allowlist("", &wildcard));
 
         let empty = parse_allowlist("");
-        assert!(!matches_allowlist("esg-backend", &empty));
+        assert!(!matches_allowlist("acme-backend", &empty));
     }
 
     #[test]
@@ -428,7 +449,7 @@ mod tests {
         let valid = json!({
             "id": 101,
             "_links": {
-                "project": { "href": "/api/v3/projects/esg-backend", "title": "ESG Backend" }
+                "project": { "href": "/api/v3/projects/acme-backend", "title": "Acme Backend" }
             }
         });
         assert!(cfg.check_work_package_project_link(&valid, false).is_ok());
@@ -436,11 +457,11 @@ mod tests {
 
     #[test]
     fn test_path_segment_validation() {
-        assert!(validate_path_segment("esg-backend", "project").is_ok());
+        assert!(validate_path_segment("acme-backend", "project").is_ok());
         assert!(validate_path_segment("123", "project").is_ok());
         assert!(validate_path_segment("../users", "project").is_err());
-        assert!(validate_path_segment("esg/../../admin", "project").is_err());
-        assert!(validate_path_segment("esg?pageSize=999", "project").is_err());
-        assert!(validate_path_segment("esg%2fadmin", "project").is_err());
+        assert!(validate_path_segment("acme/../../admin", "project").is_err());
+        assert!(validate_path_segment("acme?pageSize=999", "project").is_err());
+        assert!(validate_path_segment("acme%2fadmin", "project").is_err());
     }
 }

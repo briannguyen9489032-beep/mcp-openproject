@@ -59,8 +59,8 @@ command = "mcp-openproject"
 [mcp_servers.openproject.env]
 OPENPROJECT_BASE_URL = "https://openproject.example.com"
 OPENPROJECT_API_TOKEN = "opapi-..."
-OPENPROJECT_READ_PROJECTS = "esg-backend,esg-frontend"
-OPENPROJECT_WRITE_PROJECTS = "esg-backend,esg-frontend"
+OPENPROJECT_READ_PROJECTS = "my-project,backend-*"
+OPENPROJECT_WRITE_PROJECTS = "my-project,backend-*"
 ```
 
 ### Configuring in Claude Code (`~/.claude.json`)
@@ -73,8 +73,8 @@ OPENPROJECT_WRITE_PROJECTS = "esg-backend,esg-frontend"
       "env": {
         "OPENPROJECT_BASE_URL": "https://openproject.example.com",
         "OPENPROJECT_API_TOKEN": "opapi-...",
-        "OPENPROJECT_READ_PROJECTS": "esg-backend,esg-frontend",
-        "OPENPROJECT_WRITE_PROJECTS": "esg-backend,esg-frontend"
+        "OPENPROJECT_READ_PROJECTS": "my-project,backend-*",
+        "OPENPROJECT_WRITE_PROJECTS": "my-project,backend-*"
       }
     }
   }
@@ -105,16 +105,19 @@ orca plugin dev load . --json
 
 Orca discovers community plugins directly from your public GitHub repository:
 
-1. Push this repository to GitHub (e.g. `https://github.com/<your-username>/mcp-openproject`).
-2. Add the `orca-plugin` topic to the repository:
+1. Create a public, non-fork GitHub repository (e.g. `IvanHa-dev/mcp-openproject`). The manifest omits the deprecated `publisher` field; Orca derives the publisher from the GitHub repository owner.
+2. Review and commit the intended source and `assets/cover.png`, then push that commit. Do not include credentials, local build artifacts, or compiled binaries. The Rust MCP executable is installed separately by users.
+3. Run `cargo test`, `orca plugin validate .`, `orca plugin check .`, and `orca plugin test .` against the release contents.
+4. Add the `orca-plugin` topic to the repository, using GitHub's About → Topics UI or:
    ```bash
-   gh repo edit <your-username>/mcp-openproject --add-topic orca-plugin
+   gh repo edit IvanHa-dev/mcp-openproject --add-topic orca-plugin
    ```
-3. Tag a release matching `version` in `orca-plugin.json`:
+5. Tag the committed release with the `version` in `orca-plugin.json` and push the tag:
    ```bash
    git tag -a v0.1.0 -m v0.1.0
    git push origin v0.1.0
    ```
+6. Check `https://www.onorca.dev/plugins/IvanHa-dev/mcp-openproject` for the automated listing result.
 
 ---
 

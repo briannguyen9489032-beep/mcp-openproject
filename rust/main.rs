@@ -100,7 +100,15 @@ fn handle_jsonrpc_message(client: &OpenProjectClient, msg: &Value) -> Option<Val
                 .unwrap_or_default();
             let tool_args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
 
-            match call_tool(client, tool_name, &tool_args) {
+            let refreshed_client;
+            let active_client = if !client.config.has_credentials() {
+                refreshed_client = OpenProjectClient::new(OpenProjectConfig::from_env());
+                &refreshed_client
+            } else {
+                client
+            };
+
+            match call_tool(active_client, tool_name, &tool_args) {
                 Ok(payload) => {
                     let pretty = serde_json::to_string_pretty(&payload)
                         .unwrap_or_else(|_| payload.to_string());
@@ -332,8 +340,8 @@ mod tests {
                             "elements": [
                                 {
                                     "id": 1,
-                                    "identifier": "esg-backend",
-                                    "name": "ESG Backend",
+                                    "identifier": "acme-backend",
+                                    "name": "Acme Backend",
                                     "active": true,
                                     "description": { "raw": "Core backend" }
                                 },
@@ -366,8 +374,8 @@ mod tests {
                             "status": { "href": "/api/v3/statuses/1", "title": "New" },
                             "type": { "href": "/api/v3/types/1", "title": "Bug" },
                             "priority": { "href": "/api/v3/priorities/8", "title": "High" },
-                            "project": { "href": "/api/v3/projects/esg-backend", "title": "ESG Backend" },
-                            "assignee": { "href": "/api/v3/users/4", "title": "Ivan Ha" }
+                            "project": { "href": "/api/v3/projects/acme-backend", "title": "Acme Backend" },
+                            "assignee": { "href": "/api/v3/users/4", "title": "Alex Dev" }
                         }
                     }),
                     ("PATCH", "/api/v3/work_packages/1428") => json!({
@@ -380,8 +388,8 @@ mod tests {
                             "status": { "href": "/api/v3/statuses/7", "title": "In Progress" },
                             "type": { "href": "/api/v3/types/1", "title": "Bug" },
                             "priority": { "href": "/api/v3/priorities/8", "title": "High" },
-                            "project": { "href": "/api/v3/projects/esg-backend", "title": "ESG Backend" },
-                            "assignee": { "href": "/api/v3/users/4", "title": "Ivan Ha" }
+                            "project": { "href": "/api/v3/projects/acme-backend", "title": "Acme Backend" },
+                            "assignee": { "href": "/api/v3/users/4", "title": "Alex Dev" }
                         }
                     }),
                     _ => json!({}),
@@ -408,8 +416,8 @@ mod tests {
         let config = OpenProjectConfig {
             base_url,
             api_token: "opapi-test".to_string(),
-            read_projects: vec!["esg-*".to_string()],
-            write_projects: vec!["esg-backend".to_string()],
+            read_projects: vec!["acme-*".to_string()],
+            write_projects: vec!["acme-backend".to_string()],
             enable_project_read: true,
             enable_project_write: true,
             enable_work_package_read: true,
@@ -439,7 +447,7 @@ mod tests {
         let bad_args = call_tool(
             &client,
             "list_projects",
-            &json!({ "unknown_filter": "esg-backend" }),
+            &json!({ "unknown_filter": "acme-backend" }),
         );
         assert!(bad_args.is_err());
         assert!(bad_args
@@ -447,10 +455,10 @@ mod tests {
             .to_string()
             .contains("[validation_error] Unknown argument(s)"));
 
-        // 3. list_projects filters out private-proj via glob read_projects ("esg-*")
+        // 3. list_projects filters out private-proj via glob read_projects ("acme-*")
         let projects_res = call_tool(&client, "list_projects", &json!({})).unwrap();
         assert_eq!(projects_res["total"], 1);
-        assert_eq!(projects_res["projects"][0]["identifier"], "esg-backend");
+        assert_eq!(projects_res["projects"][0]["identifier"], "acme-backend");
 
         // 4. get_work_package with select field projection
         let wp_res = call_tool(
